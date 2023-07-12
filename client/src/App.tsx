@@ -1,10 +1,101 @@
-import { useState } from 'react';
-import './App.css';
+import { useState, useEffect, useRef } from 'react';
+import { client } from './socket';
+import Peer, { SignalData } from 'simple-peer';
+import Navbar from './components/Navbar';
+
+type TPeer = {
+  peerID: string;
+  peer: Peer.Instance;
+};
 
 function App() {
+  const [me, setMe] = useState<string>('');
+  const [peers, setPeers] = useState<Peer.Instance[]>([]);
+  const peersRef = useRef<TPeer[]>([]);
+  const myVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    client.on('connect', () => setMe(client.id));
+
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: false })
+      .then((stream: MediaStream) => {
+        client.connect();
+        myVideoRef.current!.srcObject = stream
+
+        client.on('all-users', (users: Array<{id: string}>)  =>{
+          const peers: Peer.Instance[] = [];
+          users.forEach((user: {id: string})=>{
+            const peer = createPeer(user.id, client.id, stream)
+            peersRef.current.push({
+              peerID: user.id,
+              peer,
+            })
+            peers.push(peer)
+          })
+          setPeers(peers)
+        })
+
+        client.on('user-joined', (payload: {signal: SignalData, callerID: string})=>{
+          const peer = addPeer(payload.signal, payload.callerID, stream);
+          peersRef.current.push({
+            peerID: payload.callerID,
+            peer,
+          })
+          setPeers((users: Peer.Instance[])=> [...users, peer])
+        })
+
+        client.on('call-accepted', (payload: {signal: SignalData, id: string})=>{
+          const peerToConnect = peersRef.current.find((peer: TPeer)=> peer.peerID === payload.id)
+          peerToConnect?.peer.signal(payload.signal)
+        })
+
+
+      })
+      .catch((err: Error | any) => {
+        console.log(err.message || 'Could not get media stream');
+      });
+
+    return () => {
+      client.disconnect();
+    };
+  }, []);
+
+
+  const createPeer = (userToCall: string, callerID: string, stream: MediaStream): Peer.Instance => {
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream
+    })
+
+    peer.on('signal', signal => {
+      client.emit('call-user', {signal, callerID, userToCall})
+    })
+    
+    return peer;
+  }
+  const addPeer = (incomingSignal: SignalData, callerID: string, stream: MediaStream): Peer.Instance => {
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+      stream
+    })
+
+    peer.on('signal', (signal: SignalData) => {
+      client.emit("answer-call", {signal, callerID})
+    })
+
+    peer.signal(incomingSignal)
+
+    return peer;
+  }
+
   return (
     <>
-      <h1>VideoClub</h1>
+      <Navbar />
+      <h2>{me}</h2>
+      <video ref={myVideoRef} autoPlay />
     </>
   );
 }
