@@ -5,19 +5,33 @@ import toast from 'react-hot-toast'
 import Navbar from './components/Navbar';
 import Video from './components/Video';
 
-type TPeer = {
+export type TPeer = {
   peerID: string;
   peer: Peer.Instance;
 };
 
 function App() {
   const [me, setMe] = useState<string>('');
-  const [peers, setPeers] = useState<Peer.Instance[]>([]);
+  const [peers, setPeers] = useState<TPeer[]>([]);
+  // const [peers, setPeers] = useState<Peer.Instance[]>([]);
   const peersRef = useRef<TPeer[]>([]);
   const myVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     client.on('connect', () => setMe(client.id));
+    client.on('user-disconnected', (userID: string) => {
+      toast.error(`${userID} just left the room!`)
+      const peerToDisconnect = peersRef.current.find(
+        (peer: TPeer) => peer.peerID === userID
+      );
+      if (peerToDisconnect) {
+        peerToDisconnect.peer.destroy();
+      }
+      peersRef.current.filter((peer: TPeer) => peer.peerID !== userID);
+      setPeers((users: TPeer[])=>{
+        return users.filter((user: TPeer) => user.peerID !== userID)
+      })
+    })
 
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -27,14 +41,14 @@ function App() {
         myVideoRef.current!.muted = true;
 
         client.on('all-users', (users: Array<{ id: string }>) => {
-          const peers: Peer.Instance[] = [];
+          const peers: TPeer[] = [];
           users.forEach((user: { id: string }) => {
             const peer = createPeer(user.id, client.id, stream);
             peersRef.current.push({
               peerID: user.id,
               peer,
             });
-            peers.push(peer);
+            peers.push({ peerID: user.id, peer});
           });
           setPeers(peers);
         });
@@ -48,7 +62,7 @@ function App() {
               peerID: payload.callerID,
               peer,
             });
-            setPeers((users: Peer.Instance[]) => [...users, peer]);
+            setPeers((users: TPeer[]) => [...users, {peer, peerID: payload.callerID}]);
           }
         );
 
@@ -66,6 +80,8 @@ function App() {
       .catch((err: Error | any) => {
         console.log(err.message || 'Could not get media stream');
       });
+
+
 
     return () => {
       client.disconnect();
@@ -113,12 +129,13 @@ function App() {
     return peer;
   };
 
+
   return (
     <>
       <Navbar myId={me} />
       <div className='grid grid-cols-2 md:grid-cols-6 gap-10 px-8 py-2 w-3/4 border-2  m-auto'>
-        <video ref={myVideoRef} autoPlay playsInline className="col-span-2 w-full border-sky-400 rounded border-2" />
-        {peers.map((peer: Peer.Instance, index) => {
+        <video ref={myVideoRef} autoPlay playsInline className="col-span-3 md:col-span-2 w-full border-sky-400 rounded border-2" />
+        {peers.map((peer: TPeer, index) => {
           return <Video key={index} peer={peer} />;
         })}
       </div>
