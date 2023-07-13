@@ -13,7 +13,6 @@ export type TPeer = {
 function App() {
   const [me, setMe] = useState<string>('');
   const [peers, setPeers] = useState<TPeer[]>([]);
-  // const [peers, setPeers] = useState<Peer.Instance[]>([]);
   const peersRef = useRef<TPeer[]>([]);
   const myVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -21,20 +20,15 @@ function App() {
     client.on('connect', () => setMe(client.id));
     client.on('user-disconnected', (userID: string) => {
       toast.error(`${userID} just left the room!`)
-      const peerToDisconnect = peersRef.current.find(
-        (peer: TPeer) => peer.peerID === userID
-      );
-      if (peerToDisconnect) {
-        peerToDisconnect.peer.destroy();
-      }
+      const peerToDisconnect = peersRef.current.find( (peer: TPeer) => peer.peerID === userID );
+
+      if (peerToDisconnect) peerToDisconnect.peer.destroy();
       peersRef.current.filter((peer: TPeer) => peer.peerID !== userID);
-      setPeers((users: TPeer[])=>{
-        return users.filter((user: TPeer) => user.peerID !== userID)
-      })
+      setPeers((users: TPeer[])=>{ return users.filter((user: TPeer) => user.peerID !== userID)})
     })
 
     navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
+      .getUserMedia({ video: true, audio: false })
       .then((stream: MediaStream) => {
         client.connect();
         myVideoRef.current!.srcObject = stream;
@@ -79,6 +73,7 @@ function App() {
       })
       .catch((err: Error | any) => {
         console.log(err.message || 'Could not get media stream');
+        toast.error(err.message || 'Could not get media stream')
       });
 
 
@@ -92,11 +87,7 @@ function App() {
     };
   }, []);
 
-  const createPeer = (
-    userToCall: string,
-    callerID: string,
-    stream: MediaStream
-  ): Peer.Instance => {
+  const createPeer = ( userToCall: string, callerID: string, stream: MediaStream): Peer.Instance => {
     const peer = new Peer({
       initiator: true,
       trickle: false,
@@ -109,11 +100,7 @@ function App() {
 
     return peer;
   };
-  const addPeer = (
-    incomingSignal: SignalData,
-    callerID: string,
-    stream: MediaStream
-  ): Peer.Instance => {
+  const addPeer = (incomingSignal: SignalData,callerID: string,stream: MediaStream ): Peer.Instance => {
     const peer = new Peer({
       initiator: false,
       trickle: false,
@@ -133,7 +120,7 @@ function App() {
   return (
     <>
       <Navbar myId={me} />
-      <div className='grid grid-cols-2 md:grid-cols-6 gap-10 px-8 py-2 w-3/4 border-2  m-auto'>
+      <div className='grid grid-cols-6 gap-4 px-8 py-2 w-3/4 place-content-center border-2 m-auto'>
         <video ref={myVideoRef} autoPlay playsInline className="col-span-3 md:col-span-2 w-full border-sky-400 rounded border-2" />
         {peers.map((peer: TPeer, index) => {
           return <Video key={index} peer={peer} />;
