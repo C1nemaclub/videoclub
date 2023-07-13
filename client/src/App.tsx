@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { client } from './socket';
 import Peer, { SignalData } from 'simple-peer';
+import toast from 'react-hot-toast'
 import Navbar from './components/Navbar';
 import Video from './components/Video';
 
@@ -19,10 +20,11 @@ function App() {
     client.on('connect', () => setMe(client.id));
 
     navigator.mediaDevices
-      .getUserMedia({ video: true, audio: false })
+      .getUserMedia({ video: true, audio: true })
       .then((stream: MediaStream) => {
         client.connect();
         myVideoRef.current!.srcObject = stream;
+        myVideoRef.current!.muted = true;
 
         client.on('all-users', (users: Array<{ id: string }>) => {
           const peers: Peer.Instance[] = [];
@@ -40,6 +42,7 @@ function App() {
         client.on(
           'user-joined',
           (payload: { signal: SignalData; callerID: string }) => {
+            toast.success(`${payload.callerID} just joined the room!`)
             const peer = addPeer(payload.signal, payload.callerID, stream);
             peersRef.current.push({
               peerID: payload.callerID,
@@ -112,12 +115,13 @@ function App() {
 
   return (
     <>
-      <Navbar />
-      <h2>{me}</h2>
-      <video ref={myVideoRef} autoPlay playsInline />
-      {peers.map((peer: Peer.Instance, index) => {
-        return <Video key={index} peer={peer} />;
-      })}
+      <Navbar myId={me} />
+      <div className='grid grid-cols-2 md:grid-cols-6 gap-10 px-8 py-2 w-3/4 border-2  m-auto'>
+        <video ref={myVideoRef} autoPlay playsInline className="col-span-2 w-full border-sky-400 rounded border-2" />
+        {peers.map((peer: Peer.Instance, index) => {
+          return <Video key={index} peer={peer} />;
+        })}
+      </div>
     </>
   );
 }

@@ -9,7 +9,7 @@ function Video({ peer }: { peer: Peer.Instance }) {
       if (videoRef.current) videoRef.current.srcObject = stream;
     });
   }, []);
-  return <video ref={videoRef} autoPlay playsInline />;
+  return <video ref={videoRef} autoPlay playsInline  className='col-span-2 w-full'/>;
 }
 
 export default Video;
