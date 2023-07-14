@@ -120,7 +120,7 @@ function App() {
   return (
     <>
       <Navbar myId={me} />
-      <div className='grid grid-cols-6 gap-4 px-8 py-2 w-3/4 place-content-center border-2 m-auto'>
+      <div className='grid grid-cols-6 gap-4 px-8 py-2 w-3/4 place-content-center border-2 m-auto '>
         <video ref={myVideoRef} autoPlay playsInline className="col-span-3 md:col-span-2 w-full border-sky-400 rounded border-2" />
         {peers.map((peer: TPeer, index) => {
           return <Video key={index} peer={peer} />;
